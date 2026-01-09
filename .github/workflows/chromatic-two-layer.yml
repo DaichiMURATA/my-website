@@ -26,7 +26,7 @@ jobs:
   layer1-storybook:
     name: "Layer 1: Storybook Components"
     runs-on: ubuntu-latest
-    if: github.event.inputs.test_layer != 'layer-2-only'
+    if: false  # Temporarily disabled - Storybook not yet configured
     outputs:
       build_url: ${{ steps.chromatic.outputs.buildUrl }}
       story_count: ${{ steps.chromatic.outputs.storyCount }}
@@ -160,16 +160,9 @@ jobs:
             
             // Layer 1 Results
             body += '### Layer 1: Storybook Component Testing\n';
-            if (layer1Status === 'success') {
-              body += '✅ **Passed** - Storybook components tested\n';
-              body += `- Build URL: ${{ needs.layer1-storybook.outputs.build_url || 'N/A' }}\n`;
-              body += `- Stories: ${{ needs.layer1-storybook.outputs.story_count || 'N/A' }}\n`;
-              body += '\n📊 [View Chromatic Dashboard →](${{ needs.layer1-storybook.outputs.build_url || '#' }})\n';
-            } else if (layer1Status === 'skipped') {
-              body += '⏭️ **Skipped** - Layer 1 not requested\n';
-            } else {
-              body += '❌ **Failed** - Check workflow logs\n';
-            }
+            body += '⏭️ **Temporarily Disabled** - Storybook setup in progress\n';
+            body += '- Storybook dependencies and configuration will be added soon\n';
+            body += '- For now, using Layer 2 (Playwright) for visual testing\n';
             body += '\n';
             
             // Layer 2 Results
