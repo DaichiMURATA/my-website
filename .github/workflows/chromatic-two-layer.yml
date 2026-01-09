@@ -90,6 +90,12 @@ jobs:
     if: github.event.inputs.test_layer != 'layer-1-only'
     outputs:
       test_status: ${{ steps.tests.outcome }}
+      chromatic_url: ${{ steps.chromatic_upload.outputs.url }}
+    
+    env:
+      # EDS URL Pattern: https://{branch}--my-website--daichimurata.hlx.page/
+      SOURCE_URL: https://${{ github.head_ref || github.ref_name }}--my-website--daichimurata.hlx.page
+      TARGET_URL: https://${{ github.base_ref || 'main' }}--my-website--daichimurata.hlx.page
     
     steps:
       - name: Checkout repository
@@ -111,13 +117,27 @@ jobs:
       
       - name: Run Playwright E2E tests
         id: tests
-        run: npm run test:chromatic
         env:
-          BASE_BRANCH: ${{ github.base_ref || 'main' }}
-          COMPARE_BRANCH: ${{ github.head_ref || 'current' }}
-          REPO_OWNER: ${{ github.repository_owner }}
-          REPO_NAME: ${{ github.event.repository.name }}
+          SOURCE_URL: ${{ env.SOURCE_URL }}
+        run: npm run test:chromatic
         continue-on-error: true
+      
+      - name: Upload to Chromatic
+        id: chromatic_upload
+        if: always() && steps.tests.outcome == 'success'
+        env:
+          CHROMATIC_PROJECT_TOKEN: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
+        run: |
+          echo "📤 Uploading to Chromatic..."
+          npm run chromatic:upload > chromatic-output.txt 2>&1 || true
+          
+          # Extract Chromatic URL from output
+          CHROMATIC_URL=$(grep -o 'https://[^ ]*chromatic.com[^ ]*' chromatic-output.txt | head -1 || echo "")
+          
+          echo "url=${CHROMATIC_URL}" >> $GITHUB_OUTPUT
+          
+          # Display output
+          cat chromatic-output.txt
       
       - name: Upload test results
         uses: actions/upload-artifact@v4
@@ -125,9 +145,9 @@ jobs:
         with:
           name: layer2-playwright-results
           path: |
-            tests/chromatic-stories.spec.js-snapshots/
             test-results/
             playwright-report/
+            chromatic-output.txt
           retention-days: 7
       
       - name: Summary
@@ -136,7 +156,11 @@ jobs:
           echo "## 📊 Layer 2: Playwright E2E Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- Test Status: ${{ steps.tests.outcome }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Screenshots available in artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "- Source URL: ${{ env.SOURCE_URL }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Target URL: ${{ env.TARGET_URL }}" >> $GITHUB_STEP_SUMMARY
+          if [ -n "${{ steps.chromatic_upload.outputs.url }}" ]; then
+            echo "- Chromatic: ${{ steps.chromatic_upload.outputs.url }}" >> $GITHUB_STEP_SUMMARY
+          fi
 
   # ============================================
   # COMBINED RESULTS
@@ -169,9 +193,15 @@ jobs:
             body += '### Layer 2: Playwright E2E Page Testing\n';
             if (layer2Status === 'success') {
               body += '✅ **Passed** - E2E pages tested\n';
+              const chromaticUrl = '${{ needs.layer2-playwright.outputs.chromatic_url }}';
+              if (chromaticUrl) {
+                body += `- [View Chromatic Dashboard →](${chromaticUrl})\n`;
+              }
               body += '- Screenshots captured and available in artifacts\n';
-              body += `- Base: \`${{ github.base_ref || 'main' }}\`\n`;
-              body += `- Compare: \`${{ github.head_ref || 'current' }}\`\n`;
+              body += `- Source: \`${{ github.head_ref || github.ref_name }}\`\n`;
+              body += `- Target: \`${{ github.base_ref || 'main' }}\`\n`;
+              body += `- Source URL: https://${{ github.head_ref || github.ref_name }}--my-website--daichimurata.hlx.page/\n`;
+              body += `- Target URL: https://${{ github.base_ref || 'main' }}--my-website--daichimurata.hlx.page/\n`;
             } else if (layer2Status === 'skipped') {
               body += '⏭️ **Skipped** - Layer 2 not requested\n';
             } else {
