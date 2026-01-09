@@ -11,11 +11,11 @@
  */
 
 :root {
-  /* colors - Modified for Chromatic visual regression test */
-  --link-color: #ff6b6b; /* Changed from #035fe6 to red for testing */
-  --link-hover-color: #ff5252; /* Changed from #136ff6 for testing */
-  --background-color: #f8f9fa; /* Changed from white to light gray for testing */
-  --light-color: #e3f2fd; /* Changed from #eee to light blue for testing */
+  /* colors - Green theme for Chromatic test */
+  --link-color: #27ae60; /* Green for links */
+  --link-hover-color: #2ecc71; /* Light green for hover */
+  --background-color: #e8f8f5; /* Very light green background */
+  --light-color: #d5f4e6; /* Light green */
   --dark-color: #ccc;
   --text-color: black;
 
@@ -85,16 +85,16 @@ h4, h5, h6 {
   margin-top: 1em;
   margin-bottom: .5em;
   scroll-margin: calc(var(--nav-height) + 1em);
-  color: #2c3e50; /* Added color for Chromatic test */
+  color: #16a085; /* Green color for headings - Chromatic test */
 }
 
 h1 { 
   font-size: var(--heading-font-size-xxl);
-  color: #e74c3c; /* Red color for h1 - Chromatic test */
+  color: #27ae60; /* Green color for h1 - Chromatic test */
 }
 h2 { 
   font-size: var(--heading-font-size-xl);
-  color: #3498db; /* Blue color for h2 - Chromatic test */
+  color: #2ecc71; /* Light green color for h2 - Chromatic test */
 }
 h3 { font-size: var(--heading-font-size-l) }
 h4 { font-size: var(--heading-font-size-m) }
