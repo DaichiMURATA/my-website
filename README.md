@@ -24,3 +24,9 @@ npm run lint
 1. Install the [AEM CLI](https://github.com/adobe/helix-cli): `npm install -g @adobe/aem-cli`
 1. Start AEM Proxy: `aem up` (opens your browser at `http://localhost:3000`)
 1. Open the `{repo}` directory in your favorite IDE and start coding :)
+
+
+## Chromatic Testing
+
+This project now includes two-layer visual regression testing with Chromatic.
+See `CHROMATIC-SETUP-COMPLETE.md` for details.
