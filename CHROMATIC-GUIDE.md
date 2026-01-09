@@ -101,12 +101,17 @@ PRコメントに結果を投稿
 ### アクセス方法
 
 1. **ダッシュボード URL**:
+   - **特定のビルド**: `https://www.chromatic.com/build?appId=69606830af12af0596be2ea1&number={BUILD_NUMBER}`
+     - 例: Build 9 → `https://www.chromatic.com/build?appId=69606830af12af0596be2ea1&number=9`
    - **ビルド一覧**: https://www.chromatic.com/builds?appId=69606830af12af0596be2ea1
    - **プロジェクトページ**: https://www.chromatic.com/manage?appId=69606830af12af0596be2ea1
 
-2. **直接ビルドURL**:
-   - Chromaticアップロード時に表示されるURL（例: `https://69606830af12af0596be2ea1-zwctuhpcvo.chromatic.com/`）
-   - PRコメントのリンクから直接アクセス
+2. **PRコメントから直接アクセス** (推奨):
+   - PRに投稿されるコメントの「View Chromatic Build #X」リンクをクリック
+   - 直接該当ビルドのDiff比較画面に移動します
+
+> ⚠️ **注意**: `https://{appId}-{hash}.chromatic.com/...` のURLはStorybookビューで、Diff比較ができません。  
+> 必ず `https://www.chromatic.com/build?appId=...&number=...` のURLを使用してください。
 
 2. **Build履歴**:
    - Build 6: 初回アップロード (testbranch)

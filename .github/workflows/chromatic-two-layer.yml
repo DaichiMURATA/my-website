@@ -91,6 +91,7 @@ jobs:
     outputs:
       test_status: ${{ steps.tests.outcome }}
       chromatic_url: ${{ steps.chromatic_upload.outputs.url }}
+      build_number: ${{ steps.chromatic_upload.outputs.build_number }}
     
     env:
       # EDS URL Pattern: https://{branch}--my-website--daichimurata.hlx.page/
@@ -131,16 +132,20 @@ jobs:
           echo "📤 Uploading to Chromatic..."
           npm run chromatic:upload > chromatic-output.txt 2>&1 || true
           
-          # Extract Chromatic URLs from output
-          # Build-specific URL (e.g., https://69606830af12af0596be2ea1-zwctuhpcvo.chromatic.com/)
-          BUILD_URL=$(grep -o 'https://[0-9a-f]*-[a-z0-9]*\.chromatic\.com/' chromatic-output.txt | head -1 || echo "")
+          # Extract build number from Chromatic output
+          # Pattern: "Build 9 completed" or "Started build 9"
+          BUILD_NUMBER=$(grep -oP '(?:Build|build) \K\d+' chromatic-output.txt | head -1 || echo "")
           
-          # If build URL not found, use builds list page
-          if [ -z "$BUILD_URL" ]; then
+          # Construct Chromatic build URL
+          if [ -n "$BUILD_NUMBER" ]; then
+            BUILD_URL="https://www.chromatic.com/build?appId=69606830af12af0596be2ea1&number=${BUILD_NUMBER}"
+          else
+            # Fallback to builds list page
             BUILD_URL="https://www.chromatic.com/builds?appId=69606830af12af0596be2ea1"
           fi
           
           echo "url=${BUILD_URL}" >> $GITHUB_OUTPUT
+          echo "build_number=${BUILD_NUMBER}" >> $GITHUB_OUTPUT
           
           # Display output
           cat chromatic-output.txt
@@ -200,8 +205,9 @@ jobs:
             if (layer2Status === 'success') {
               body += '✅ **Passed** - E2E pages tested\n';
               const chromaticUrl = '${{ needs.layer2-playwright.outputs.chromatic_url }}';
+              const buildNumber = '${{ needs.layer2-playwright.outputs.build_number }}';
               if (chromaticUrl) {
-                body += `- [View Chromatic Dashboard →](${chromaticUrl})\n`;
+                body += `- 🔗 [View Chromatic Build #${buildNumber} →](${chromaticUrl})\n`;
               }
               body += '- Screenshots captured and available in artifacts\n';
               body += `- Source: \`${{ github.head_ref || github.ref_name }}\`\n`;
