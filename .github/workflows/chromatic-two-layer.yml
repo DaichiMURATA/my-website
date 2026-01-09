@@ -26,7 +26,7 @@ jobs:
   layer1-storybook:
     name: "Layer 1: Storybook Components"
     runs-on: ubuntu-latest
-    if: github.event.inputs.test_layer != 'layer-2-only'
+    if: false  # Temporarily disabled - Storybook not yet configured
     outputs:
       build_url: ${{ steps.chromatic.outputs.buildUrl }}
       story_count: ${{ steps.chromatic.outputs.storyCount }}
@@ -46,27 +46,40 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
-      - name: Build Storybook
-        run: npm run build-storybook
-      
       - name: Run Chromatic (Storybook)
         id: chromatic
-        uses: chromaui/action@latest
+        uses: chromaui/action@v1
         with:
           projectToken: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
           buildScriptName: build-storybook
           exitZeroOnChanges: true
           exitOnceUploaded: true
           onlyChanged: true
-        continue-on-error: true
+        continue-on-error: false
+      
+      - name: Upload Storybook build (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: storybook-build-debug
+          path: |
+            storybook-static/
+            build-storybook.log
+          retention-days: 3
       
       - name: Summary
+        if: always()
         run: |
           echo "## 📊 Layer 1: Storybook Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- Build URL: ${{ steps.chromatic.outputs.buildUrl }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Story Count: ${{ steps.chromatic.outputs.storyCount }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Status: ✅ Complete" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.chromatic.outcome }}" == "success" ]; then
+            echo "- Build URL: ${{ steps.chromatic.outputs.buildUrl }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Story Count: ${{ steps.chromatic.outputs.storyCount }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Status: ✅ Complete" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- Status: ❌ Failed" >> $GITHUB_STEP_SUMMARY
+            echo "- Check workflow logs for details" >> $GITHUB_STEP_SUMMARY
+          fi
 
   # ============================================
   # LAYER 2: Playwright E2E Page Testing
@@ -147,16 +160,9 @@ jobs:
             
             // Layer 1 Results
             body += '### Layer 1: Storybook Component Testing\n';
-            if (layer1Status === 'success') {
-              body += '✅ **Passed** - Storybook components tested\n';
-              body += `- Build URL: ${{ needs.layer1-storybook.outputs.build_url || 'N/A' }}\n`;
-              body += `- Stories: ${{ needs.layer1-storybook.outputs.story_count || 'N/A' }}\n`;
-              body += '\n📊 [View Chromatic Dashboard →](${{ needs.layer1-storybook.outputs.build_url || '#' }})\n';
-            } else if (layer1Status === 'skipped') {
-              body += '⏭️ **Skipped** - Layer 1 not requested\n';
-            } else {
-              body += '❌ **Failed** - Check workflow logs\n';
-            }
+            body += '⏭️ **Temporarily Disabled** - Storybook setup in progress\n';
+            body += '- Storybook dependencies and configuration will be added soon\n';
+            body += '- For now, using Layer 2 (Playwright) for visual testing\n';
             body += '\n';
             
             // Layer 2 Results
