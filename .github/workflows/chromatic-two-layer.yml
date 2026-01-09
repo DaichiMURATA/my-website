@@ -131,10 +131,16 @@ jobs:
           echo "📤 Uploading to Chromatic..."
           npm run chromatic:upload > chromatic-output.txt 2>&1 || true
           
-          # Extract Chromatic URL from output
-          CHROMATIC_URL=$(grep -o 'https://[^ ]*chromatic.com[^ ]*' chromatic-output.txt | head -1 || echo "")
+          # Extract Chromatic URLs from output
+          # Build-specific URL (e.g., https://69606830af12af0596be2ea1-zwctuhpcvo.chromatic.com/)
+          BUILD_URL=$(grep -o 'https://[0-9a-f]*-[a-z0-9]*\.chromatic\.com/' chromatic-output.txt | head -1 || echo "")
           
-          echo "url=${CHROMATIC_URL}" >> $GITHUB_OUTPUT
+          # If build URL not found, use builds list page
+          if [ -z "$BUILD_URL" ]; then
+            BUILD_URL="https://www.chromatic.com/builds?appId=69606830af12af0596be2ea1"
+          fi
+          
+          echo "url=${BUILD_URL}" >> $GITHUB_OUTPUT
           
           # Display output
           cat chromatic-output.txt

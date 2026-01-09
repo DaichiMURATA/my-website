@@ -100,7 +100,13 @@ PRコメントに結果を投稿
 
 ### アクセス方法
 
-1. **ダッシュボード URL**: https://www.chromatic.com/setup?appId=69606830af12af0596be2ea1
+1. **ダッシュボード URL**:
+   - **ビルド一覧**: https://www.chromatic.com/builds?appId=69606830af12af0596be2ea1
+   - **プロジェクトページ**: https://www.chromatic.com/manage?appId=69606830af12af0596be2ea1
+
+2. **直接ビルドURL**:
+   - Chromaticアップロード時に表示されるURL（例: `https://69606830af12af0596be2ea1-zwctuhpcvo.chromatic.com/`）
+   - PRコメントのリンクから直接アクセス
 
 2. **Build履歴**:
    - Build 6: 初回アップロード (testbranch)

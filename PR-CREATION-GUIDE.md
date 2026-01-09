@@ -115,7 +115,9 @@ PRに以下のようなコメントが自動投稿されます：
 #### Chromaticダッシュボード
 
 1. **PRコメントのリンクをクリック**
-   - または直接: https://www.chromatic.com/setup?appId=69606830af12af0596be2ea1
+   - または直接アクセス:
+     - **ビルド一覧**: https://www.chromatic.com/builds?appId=69606830af12af0596be2ea1
+     - **プロジェクト管理**: https://www.chromatic.com/manage?appId=69606830af12af0596be2ea1
 
 2. **Builds一覧**:
    - Build 6: testbranch（ベースライン）
