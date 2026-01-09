@@ -46,27 +46,40 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
-      - name: Build Storybook
-        run: npm run build-storybook
-      
       - name: Run Chromatic (Storybook)
         id: chromatic
-        uses: chromaui/action@latest
+        uses: chromaui/action@v1
         with:
           projectToken: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
           buildScriptName: build-storybook
           exitZeroOnChanges: true
           exitOnceUploaded: true
           onlyChanged: true
-        continue-on-error: true
+        continue-on-error: false
+      
+      - name: Upload Storybook build (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: storybook-build-debug
+          path: |
+            storybook-static/
+            build-storybook.log
+          retention-days: 3
       
       - name: Summary
+        if: always()
         run: |
           echo "## 📊 Layer 1: Storybook Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- Build URL: ${{ steps.chromatic.outputs.buildUrl }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Story Count: ${{ steps.chromatic.outputs.storyCount }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Status: ✅ Complete" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.chromatic.outcome }}" == "success" ]; then
+            echo "- Build URL: ${{ steps.chromatic.outputs.buildUrl }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Story Count: ${{ steps.chromatic.outputs.storyCount }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Status: ✅ Complete" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- Status: ❌ Failed" >> $GITHUB_STEP_SUMMARY
+            echo "- Check workflow logs for details" >> $GITHUB_STEP_SUMMARY
+          fi
 
   # ============================================
   # LAYER 2: Playwright E2E Page Testing
