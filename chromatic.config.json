@@ -1,0 +1,29 @@
+{
+  "$schema": "https://www.chromatic.com/config-file.schema.json",
+  "projectId": "Project:69606830af12af0596be2ea1",
+  
+  "comment": "Baseline management configuration",
+  
+  "autoAcceptChanges": "main",
+  
+  "comment_autoAcceptChanges": [
+    "mainブランチにマージされた変更のみ自動承認",
+    "PRブランチでは自動承認されない = baselineは更新されない",
+    "これにより、複数PRが立っても互いに影響しない"
+  ],
+  
+  "exitZeroOnChanges": true,
+  
+  "comment_exitZeroOnChanges": [
+    "視覚的変更が検出されてもexit code 0で終了",
+    "CI/CDで失敗扱いにならない"
+  ],
+  
+  "exitOnceUploaded": false,
+  
+  "comment_exitOnceUploaded": [
+    "アップロード完了後もテスト結果を待つ",
+    "trueにするとアップロードのみで終了（高速だが結果がPRに反映されない）"
+  ]
+}
+
