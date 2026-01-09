@@ -1,0 +1,170 @@
+# Chromatic Visual Regression for PRs
+# Based on eds-base-site best practices
+
+name: Chromatic PR
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  EDS_OWNER: daichimurata
+  EDS_REPO: my-website
+  EDS_DOMAIN: hlx.page
+
+jobs:
+  chromatic-pr:
+    name: "Chromatic Visual Regression"
+    runs-on: ubuntu-latest
+    
+    outputs:
+      chromatic_url: ${{ steps.chromatic_upload.outputs.url }}
+      build_number: ${{ steps.chromatic_upload.outputs.build_number }}
+      snapshot_count: ${{ steps.chromatic_upload.outputs.snapshot_count }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      
+      - name: Set environment variables
+        run: |
+          echo "SOURCE_URL=https://${{ github.head_ref }}--${{ env.EDS_REPO }}--${{ env.EDS_OWNER }}.${{ env.EDS_DOMAIN }}" >> $GITHUB_ENV
+          echo "TARGET_URL=https://${{ github.base_ref || 'main' }}--${{ env.EDS_REPO }}--${{ env.EDS_OWNER }}.${{ env.EDS_DOMAIN }}" >> $GITHUB_ENV
+      
+      - name: Run Playwright E2E tests
+        id: tests
+        env:
+          SOURCE_URL: ${{ env.SOURCE_URL }}
+        run: npm run test:chromatic
+        continue-on-error: true
+      
+      - name: Upload to Chromatic
+        id: chromatic_upload
+        if: always() && steps.tests.outcome == 'success'
+        env:
+          CHROMATIC_PROJECT_TOKEN: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
+        run: |
+          echo "📤 Uploading to Chromatic..."
+          echo "📊 Comparing ${{ github.head_ref }} against main baseline"
+          
+          # Run Chromatic with branch information for proper comparison
+          npx chromatic --playwright \
+            --branch=${{ github.head_ref }} \
+            --parent-branch=${{ github.base_ref }} \
+            --exit-zero-on-changes \
+            > chromatic-output.txt 2>&1 || true
+          
+          cat chromatic-output.txt
+          
+          # Extract build information
+          BUILD_URL=$(grep -oP 'https://www.chromatic.com/build\?appId=[0-9a-f]+&number=\d+' chromatic-output.txt | head -1)
+          SNAPSHOT_COUNT=$(grep -oP 'captured \K\d+(?= snapshots)' chromatic-output.txt | head -1)
+          BUILD_NUMBER=$(grep -oP '(?:Build|build) \K\d+' chromatic-output.txt | head -1)
+          
+          echo "url=${BUILD_URL}" >> $GITHUB_OUTPUT
+          echo "snapshot_count=${SNAPSHOT_COUNT}" >> $GITHUB_OUTPUT
+          echo "build_number=${BUILD_NUMBER}" >> $GITHUB_OUTPUT
+      
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: chromatic-results
+          path: |
+            test-results/
+            chromatic-output.txt
+          retention-days: 7
+      
+      - name: Summary
+        if: always()
+        run: |
+          echo "## 📊 Chromatic Visual Regression Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Test Status: ${{ steps.tests.outcome }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Source Branch: ${{ github.head_ref }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Target Branch: ${{ github.base_ref }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Source URL: ${{ env.SOURCE_URL }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Target URL: ${{ env.TARGET_URL }}" >> $GITHUB_STEP_SUMMARY
+          if [ -n "${{ steps.chromatic_upload.outputs.url }}" ]; then
+            echo "- 🔗 [View Chromatic Build #${{ steps.chromatic_upload.outputs.build_number }} →](${{ steps.chromatic_upload.outputs.url }})" >> $GITHUB_STEP_SUMMARY
+          fi
+  
+  post-pr-comment:
+    name: "Post PR Comment"
+    needs: chromatic-pr
+    if: always() && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Post PR Comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const status = '${{ needs.chromatic-pr.result }}';
+            const chromaticUrl = '${{ needs.chromatic-pr.outputs.chromatic_url }}';
+            const buildNumber = '${{ needs.chromatic-pr.outputs.build_number }}';
+            const snapshotCount = '${{ needs.chromatic-pr.outputs.snapshot_count }}';
+            
+            let body = '## 🎨 Chromatic Visual Regression Results\n\n';
+            
+            if (status === 'success') {
+              body += '✅ **Visual tests completed**\n\n';
+              
+              if (chromaticUrl && buildNumber) {
+                body += `### 📸 Snapshots\n`;
+                body += `- **Build #${buildNumber}**\n`;
+                if (snapshotCount) {
+                  body += `- **${snapshotCount} snapshots** captured\n`;
+                }
+                body += `\n`;
+                body += `🔗 [**View Chromatic Build & Compare Changes →**](${chromaticUrl})\n\n`;
+              } else if (chromaticUrl) {
+                body += `🔗 [**View Chromatic Dashboard →**](${chromaticUrl})\n\n`;
+              }
+              
+              body += `### 📊 Details\n`;
+              body += `- **Source**: \`${{ github.head_ref }}\`\n`;
+              body += `- **Target**: \`${{ github.base_ref }}\`\n`;
+              body += `- **Baseline**: Main branch latest build\n\n`;
+              
+              body += `### 👀 Next Steps\n`;
+              body += `1. Click the Chromatic link above\n`;
+              body += `2. Review visual changes in the Chromatic dashboard\n`;
+              body += `3. Accept or reject changes as needed\n`;
+              body += `4. Note: Accepting changes in PR does NOT update main baseline\n`;
+              
+            } else if (status === 'skipped') {
+              body += '⏭️ **Skipped** - Visual tests not run\n';
+            } else {
+              body += '❌ **Failed** - Visual tests failed, check workflow logs\n';
+              if (chromaticUrl && buildNumber) {
+                body += `\n🔗 [View Chromatic Build #${buildNumber} →](${chromaticUrl})\n`;
+              }
+            }
+            
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
