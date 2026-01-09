@@ -2,6 +2,23 @@
 
 このリポジトリは、Chromaticを使った2層Visual Regression Testingが設定済みです。
 
+## ⚠️ 現在のステータス
+
+### Layer 1: Storybook Component Testing
+⏭️ **一時的に無効化** - Storybookの設定が未完了
+
+このリポジトリにはまだStorybookがインストールされていません。Layer 1を有効にするには：
+
+```bash
+cd /Users/dmurata/Documents/Dev/my-website
+npx storybook@latest init
+```
+
+### Layer 2: Playwright E2E Page Testing
+✅ **動作中** - 実際のページをテスト
+
+Playwrightを使った実際のページのビジュアルテストは正常に動作しています。
+
 ## ✅ セットアップ完了事項
 
 - [x] Chromaticアカウント作成
@@ -42,12 +59,13 @@ git push origin feature/test-visual-regression
 
 ## 📊 2層テストの内容
 
-### Layer 1: Storybook Component Testing
+### Layer 1: Storybook Component Testing ⏭️ (一時無効)
 
 **対象**: 
-- `stories/Homepage.stories.js`
+- Storybook未設定のため、現在スキップ
 
 **内容**:
+- Layer 1を有効にするには、Storybookのセットアップが必要です
 - Storybookの各ストーリーをスナップショット
 - Chromaticにアップロード
 - ビジュアル差分を自動検出
