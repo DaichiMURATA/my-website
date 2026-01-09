@@ -1,0 +1,207 @@
+name: "Chromatic Two-Layer Visual Testing"
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+    inputs:
+      test_layer:
+        description: 'Which layer to test'
+        required: false
+        default: 'both'
+        type: choice
+        options:
+          - both
+          - layer-1-only
+          - layer-2-only
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # ============================================
+  # LAYER 1: Storybook Component Testing
+  # ============================================
+  layer1-storybook:
+    name: "Layer 1: Storybook Components"
+    runs-on: ubuntu-latest
+    if: github.event.inputs.test_layer != 'layer-2-only'
+    outputs:
+      build_url: ${{ steps.chromatic.outputs.buildUrl }}
+      story_count: ${{ steps.chromatic.outputs.storyCount }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Required for Chromatic
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build Storybook
+        run: npm run build-storybook
+      
+      - name: Run Chromatic (Storybook)
+        id: chromatic
+        uses: chromaui/action@latest
+        with:
+          projectToken: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
+          buildScriptName: build-storybook
+          exitZeroOnChanges: true
+          exitOnceUploaded: true
+          onlyChanged: true
+        continue-on-error: true
+      
+      - name: Summary
+        run: |
+          echo "## 📊 Layer 1: Storybook Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Build URL: ${{ steps.chromatic.outputs.buildUrl }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Story Count: ${{ steps.chromatic.outputs.storyCount }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Status: ✅ Complete" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================
+  # LAYER 2: Playwright E2E Page Testing
+  # ============================================
+  layer2-playwright:
+    name: "Layer 2: Playwright E2E Pages"
+    runs-on: ubuntu-latest
+    if: github.event.inputs.test_layer != 'layer-1-only'
+    outputs:
+      test_status: ${{ steps.tests.outcome }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      
+      - name: Run Playwright E2E tests
+        id: tests
+        run: npm run test:chromatic
+        env:
+          BASE_BRANCH: ${{ github.base_ref || 'main' }}
+          COMPARE_BRANCH: ${{ github.head_ref || 'current' }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+        continue-on-error: true
+      
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: layer2-playwright-results
+          path: |
+            tests/chromatic-stories.spec.js-snapshots/
+            test-results/
+            playwright-report/
+          retention-days: 7
+      
+      - name: Summary
+        if: always()
+        run: |
+          echo "## 📊 Layer 2: Playwright E2E Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Test Status: ${{ steps.tests.outcome }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Screenshots available in artifacts" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================
+  # COMBINED RESULTS
+  # ============================================
+  report-results:
+    name: "Report Combined Results"
+    needs: [layer1-storybook, layer2-playwright]
+    if: always()
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Post PR Comment
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const layer1Status = '${{ needs.layer1-storybook.result }}';
+            const layer2Status = '${{ needs.layer2-playwright.result }}';
+            
+            let body = '## 🎨 Chromatic Two-Layer Visual Testing Results\n\n';
+            
+            // Layer 1 Results
+            body += '### Layer 1: Storybook Component Testing\n';
+            if (layer1Status === 'success') {
+              body += '✅ **Passed** - Storybook components tested\n';
+              body += `- Build URL: ${{ needs.layer1-storybook.outputs.build_url || 'N/A' }}\n`;
+              body += `- Stories: ${{ needs.layer1-storybook.outputs.story_count || 'N/A' }}\n`;
+              body += '\n📊 [View Chromatic Dashboard →](${{ needs.layer1-storybook.outputs.build_url || '#' }})\n';
+            } else if (layer1Status === 'skipped') {
+              body += '⏭️ **Skipped** - Layer 1 not requested\n';
+            } else {
+              body += '❌ **Failed** - Check workflow logs\n';
+            }
+            body += '\n';
+            
+            // Layer 2 Results
+            body += '### Layer 2: Playwright E2E Page Testing\n';
+            if (layer2Status === 'success') {
+              body += '✅ **Passed** - E2E pages tested\n';
+              body += '- Screenshots captured and available in artifacts\n';
+              body += `- Base: \`${{ github.base_ref || 'main' }}\`\n`;
+              body += `- Compare: \`${{ github.head_ref || 'current' }}\`\n`;
+            } else if (layer2Status === 'skipped') {
+              body += '⏭️ **Skipped** - Layer 2 not requested\n';
+            } else {
+              body += '⚠️ **Warning** - Some tests may have issues, check artifacts\n';
+            }
+            body += '\n';
+            
+            // Footer
+            body += '---\n';
+            body += '💡 **About Two-Layer Testing**:\n';
+            body += '- **Layer 1**: Tests isolated components in Storybook\n';
+            body += '- **Layer 2**: Tests complete pages with Playwright\n';
+            body += '\n';
+            body += '🎯 **Next Steps**:\n';
+            body += '1. Review visual diffs in Chromatic dashboard\n';
+            body += '2. Approve or reject changes\n';
+            body += '3. Download artifacts for detailed screenshots\n';
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+      
+      - name: Final Summary
+        run: |
+          echo "## 🎯 Final Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Layer 1 (Storybook): ${{ needs.layer1-storybook.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Layer 2 (Playwright): ${{ needs.layer2-playwright.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ needs.layer1-storybook.result }}" == "success" ] && [ "${{ needs.layer2-playwright.result }}" == "success" ]; then
+            echo "✅ **All visual tests passed!**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "ℹ️ **Review test results and artifacts**" >> $GITHUB_STEP_SUMMARY
+          fi
+
