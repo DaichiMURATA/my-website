@@ -124,6 +124,7 @@ feature-A → main マージ:
 
 ```json
 {
+  "$schema": "https://www.chromatic.com/config-file.schema.json",
   "projectId": "Project:69606830af12af0596be2ea1",
   "autoAcceptChanges": "main",
   "exitZeroOnChanges": true,
@@ -132,18 +133,22 @@ feature-A → main マージ:
 ```
 
 **設定の意味**:
+
 1. **`autoAcceptChanges: "main"`**:
-   - mainブランチのビルドのみ自動承認
+   - **mainブランチのビルドのみ自動承認**
    - PRブランチでは自動承認されない
    - → PRでbaselineが勝手に更新されることはない ✅
+   - これにより、複数PRが立っても互いに影響しない
 
 2. **`exitZeroOnChanges: true`**:
-   - 視覚的変更があってもCI/CDを成功扱い
+   - **視覚的変更があってもCI/CDを成功扱い**
    - → PRがブロックされない
+   - 視覚的変更が検出されてもexit code 0で終了
 
 3. **`exitOnceUploaded: false`**:
-   - テスト完了まで待機
+   - **テスト完了まで待機**
    - → 結果がPRコメントに反映される
+   - trueにするとアップロードのみで終了（高速だが結果がPRに反映されない）
 
 ### 推奨ワークフロー
 
